@@ -1,0 +1,122 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: beacon-alerts
+  labels:
+    app: beacon
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+    - name: beacon.rules
+      rules:
+        # ---------------------------------------------------------------
+        # Storage Alerts
+        # ---------------------------------------------------------------
+        - alert: BeaconStorageWarning
+          expr: event_storage_volume_usage_percent > 80
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Beacon storage usage above 80%"
+            description: "Storage volume usage is {{ $value | humanize }}%, which exceeds the 80% warning threshold."
+
+        - alert: BeaconStorageCritical
+          expr: event_storage_volume_usage_percent > 90
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Beacon storage usage above 90%"
+            description: "Storage volume usage is {{ $value | humanize }}%, which exceeds the 90% critical threshold. Immediate action required."
+
+        # ---------------------------------------------------------------
+        # Component Health Alerts
+        # ---------------------------------------------------------------
+        - alert: BeaconComponentDown
+          expr: event_component_up == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Beacon component {{ $labels.component }} is down"
+            description: "Component {{ $labels.component }} has been reporting unhealthy for more than 2 minutes."
+
+        # ---------------------------------------------------------------
+        # Watcher Alerts
+        # ---------------------------------------------------------------
+        - alert: BeaconWatcherDisconnected
+          expr: event_connection_status == 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Beacon watcher disconnected for {{ $labels.resource_type }}"
+            description: "Watch connection for resource type {{ $labels.resource_type }} has been down for more than 2 minutes."
+
+        # ---------------------------------------------------------------
+        # Notification Alerts
+        # ---------------------------------------------------------------
+        - alert: BeaconNotificationBacklog
+          expr: sum(event_notifications_pending_total) > 100
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Beacon has a large notification backlog"
+            description: "There are {{ $value }} pending notifications, which exceeds the threshold of 100 for more than 10 minutes."
+
+        - alert: BeaconHighFailureRate
+          expr: rate(event_notifications_sent_total{status="failure"}[5m]) / rate(event_notifications_sent_total[5m]) > 0.5
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Beacon notification failure rate is high"
+            description: "More than 50% of notifications are failing over the last 5 minutes."
+
+        # ---------------------------------------------------------------
+        # Endpoint Alerts
+        # ---------------------------------------------------------------
+        - alert: BeaconEndpointDown
+          expr: event_endpoint_up == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Beacon endpoint is down"
+            description: "The notification endpoint has been unreachable for more than 5 minutes."
+
+        # ---------------------------------------------------------------
+        # Reconciliation Alerts
+        # ---------------------------------------------------------------
+        - alert: BeaconReconciliationFailures
+          expr: rate(event_reconciliation_runs_total{status="error"}[10m]) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Beacon reconciliation failures are elevated"
+            description: "Reconciliation error rate is {{ $value | humanize }}/s over the last 10 minutes."
+
+        - alert: BeaconFrequentDrift
+          expr: rate(event_reconciliation_drift_detected_total[15m]) > 1
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Beacon is detecting frequent drift"
+            description: "Drift detection rate is {{ $value | humanize }}/s over the last 15 minutes, indicating persistent state divergence."
+
+        # ---------------------------------------------------------------
+        # Database Alerts
+        # ---------------------------------------------------------------
+        - alert: BeaconDatabaseErrors
+          expr: rate(event_db_operation_errors_total[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Beacon database errors are elevated"
+            description: "Database operation error rate is {{ $value | humanize }}/s over the last 5 minutes."

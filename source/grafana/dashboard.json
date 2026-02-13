@@ -1,0 +1,629 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "9.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "options": { "0": { "text": "DOWN" }, "1": { "text": "UP" } }, "type": "value" }
+          ]
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "expr": "min(event_component_up{namespace=\"$namespace\"})", "legendFormat": "" }
+      ],
+      "title": "System Status",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
+      "id": 2,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "expr": "sum(rate(event_events_total{namespace=\"$namespace\", resource_type=~\"$resource_type\"}[5m]))", "legendFormat": "events/s" }
+      ],
+      "title": "Event Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "id": 3,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "expr": "sum(rate(event_notifications_sent_total{namespace=\"$namespace\", status=\"success\"}[5m]))", "legendFormat": "sent/s" }
+      ],
+      "title": "Notification Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "id": 4,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "expr": "sum(event_notifications_pending_total{namespace=\"$namespace\"})", "legendFormat": "pending" }
+      ],
+      "title": "Pending Notifications",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "options": { "0": { "text": "DOWN" }, "1": { "text": "UP" } }, "type": "value" }
+          ]
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
+      "id": 5,
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "expr": "event_endpoint_up{namespace=\"$namespace\"}", "legendFormat": "" }
+      ],
+      "title": "Endpoint Status",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
+      "id": 6,
+      "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "expr": "event_storage_volume_usage_percent{namespace=\"$namespace\"}", "legendFormat": "usage" }
+      ],
+      "title": "Storage Usage",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "id": 7,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (resource_type, event_type) (rate(event_events_total{namespace=\"$namespace\", resource_type=~\"$resource_type\"}[5m]))", "legendFormat": "{{ resource_type }} / {{ event_type }}" }
+      ],
+      "title": "Events by Type and Resource",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "id": 8,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (detection_source) (rate(event_events_total{namespace=\"$namespace\", resource_type=~\"$resource_type\"}[5m]))", "legendFormat": "{{ detection_source }}" }
+      ],
+      "title": "Events by Detection Source",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "id": 101,
+      "title": "Performance",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "id": 9,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(event_notification_duration_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(event_notification_duration_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(event_notification_duration_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "p99" }
+      ],
+      "title": "Notification Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "id": 10,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(event_notification_latency_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(event_notification_latency_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(event_notification_latency_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "p99" }
+      ],
+      "title": "Notification Latency (Detection to Delivery)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "id": 11,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le, operation) (rate(event_db_operation_duration_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "{{ operation }} p50" },
+        { "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(event_db_operation_duration_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "{{ operation }} p95" }
+      ],
+      "title": "Database Operation Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+      "id": 12,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "event_worker_queue_size{namespace=\"$namespace\"}", "legendFormat": "{{ worker }}" }
+      ],
+      "title": "Worker Queue Depth",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
+      "id": 102,
+      "title": "Storage",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 31 },
+      "id": 13,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": false },
+      "targets": [
+        { "expr": "event_storage_volume_usage_percent{namespace=\"$namespace\"}", "legendFormat": "" }
+      ],
+      "title": "Volume Usage",
+      "type": "gauge"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "gridPos": { "h": 8, "w": 10, "x": 6, "y": 31 },
+      "id": 14,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "event_storage_volume_size_bytes{namespace=\"$namespace\"}", "legendFormat": "Total" },
+        { "expr": "event_storage_volume_used_bytes{namespace=\"$namespace\"}", "legendFormat": "Used" },
+        { "expr": "event_storage_volume_available_bytes{namespace=\"$namespace\"}", "legendFormat": "Available" }
+      ],
+      "title": "Volume Capacity",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "bytes" } },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 31 },
+      "id": 15,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "event_db_size_bytes{namespace=\"$namespace\"}", "legendFormat": "DB Size" }
+      ],
+      "title": "Database Size",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 39 },
+      "id": 16,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "event_storage_volume_inodes_total{namespace=\"$namespace\"}", "legendFormat": "Total Inodes" },
+        { "expr": "event_storage_volume_inodes_used{namespace=\"$namespace\"}", "legendFormat": "Used Inodes" }
+      ],
+      "title": "Inode Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 39 },
+      "id": 17,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "event_db_rows_total{namespace=\"$namespace\"}", "legendFormat": "{{ table }} ({{ state }})" }
+      ],
+      "title": "Database Rows by Table",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 47 },
+      "id": 103,
+      "title": "Health",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "options": { "0": { "text": "DOWN" }, "1": { "text": "UP" } }, "type": "value" }
+          ]
+        }
+      },
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 48 },
+      "id": 18,
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "expr": "event_component_up{namespace=\"$namespace\"}", "legendFormat": "{{ component }}" }
+      ],
+      "title": "Component Health",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "options": { "0": { "text": "DISCONNECTED" }, "1": { "text": "CONNECTED" } }, "type": "value" }
+          ]
+        }
+      },
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 52 },
+      "id": 19,
+      "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "targets": [
+        { "expr": "event_connection_status{namespace=\"$namespace\", resource_type=~\"$resource_type\"}", "legendFormat": "{{ resource_type }}" }
+      ],
+      "title": "Watcher Connection Status",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 56 },
+      "id": 20,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (resource_type, reason) (rate(event_reconnects_total{namespace=\"$namespace\", resource_type=~\"$resource_type\"}[5m]))", "legendFormat": "{{ resource_type }} ({{ reason }})" }
+      ],
+      "title": "Reconnection Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 56 },
+      "id": 21,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "event_endpoint_consecutive_failures{namespace=\"$namespace\"}", "legendFormat": "consecutive failures" },
+        { "expr": "event_endpoint_up{namespace=\"$namespace\"}", "legendFormat": "endpoint up" }
+      ],
+      "title": "Endpoint Health Detail",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 64 },
+      "id": 22,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (resource_type) (rate(event_events_missed_total{namespace=\"$namespace\", resource_type=~\"$resource_type\"}[5m]))", "legendFormat": "{{ resource_type }}" }
+      ],
+      "title": "Missed Events Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 64 },
+      "id": 23,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (operation, error_type) (rate(event_db_operation_errors_total{namespace=\"$namespace\"}[5m]))", "legendFormat": "{{ operation }} ({{ error_type }})" }
+      ],
+      "title": "Database Error Rate",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 72 },
+      "id": 104,
+      "title": "Reconciliation",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 73 },
+      "id": 24,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (status) (rate(event_reconciliation_runs_total{namespace=\"$namespace\"}[5m]))", "legendFormat": "{{ status }}" }
+      ],
+      "title": "Reconciliation Runs by Status",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 73 },
+      "id": 25,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(event_reconciliation_duration_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "p50" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(event_reconciliation_duration_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "p95" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(event_reconciliation_duration_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "p99" }
+      ],
+      "title": "Reconciliation Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 81 },
+      "id": 26,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (resource_type, drift_type) (rate(event_reconciliation_drift_detected_total{namespace=\"$namespace\", resource_type=~\"$resource_type\"}[5m]))", "legendFormat": "{{ resource_type }} ({{ drift_type }})" }
+      ],
+      "title": "Drift Detection Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 81 },
+      "id": 27,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (resource_type, action) (rate(event_reconciliation_objects_processed_total{namespace=\"$namespace\", resource_type=~\"$resource_type\"}[5m]))", "legendFormat": "{{ resource_type }} ({{ action }})" }
+      ],
+      "title": "Objects Processed",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 89 },
+      "id": 105,
+      "title": "Notifications Detail",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 90 },
+      "id": 28,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (resource_type, event_type, status) (rate(event_notifications_sent_total{namespace=\"$namespace\", resource_type=~\"$resource_type\"}[5m]))", "legendFormat": "{{ resource_type }} / {{ event_type }} ({{ status }})" }
+      ],
+      "title": "Notifications by Status",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 90 },
+      "id": 29,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(event_notification_attempts_total_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "p50 attempts" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(event_notification_attempts_total_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "p95 attempts" }
+      ],
+      "title": "Notification Attempts Distribution",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 98 },
+      "id": 30,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (resource_type, event_type) (rate(event_notification_max_retries_exceeded_total{namespace=\"$namespace\", resource_type=~\"$resource_type\"}[5m]))", "legendFormat": "{{ resource_type }} / {{ event_type }}" }
+      ],
+      "title": "Max Retries Exceeded Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 98 },
+      "id": 31,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (resource_type, event_type, status_code) (rate(event_notification_non_retriable_failures_total{namespace=\"$namespace\", resource_type=~\"$resource_type\"}[5m]))", "legendFormat": "{{ resource_type }} / {{ event_type }} ({{ status_code }})" }
+      ],
+      "title": "Non-Retriable Failures",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": { "unit": "s" } },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 98 },
+      "id": 32,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, sum by (le, attempt) (rate(event_notification_retry_backoff_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "attempt {{ attempt }} p50" },
+        { "expr": "histogram_quantile(0.95, sum by (le, attempt) (rate(event_notification_retry_backoff_seconds_bucket{namespace=\"$namespace\"}[5m])))", "legendFormat": "attempt {{ attempt }} p95" }
+      ],
+      "title": "Retry Backoff Duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 106 },
+      "id": 33,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (resource_type, mutation_type) (rate(event_annotation_mutations_total{namespace=\"$namespace\", resource_type=~\"$resource_type\"}[5m]))", "legendFormat": "{{ resource_type }} ({{ mutation_type }})" }
+      ],
+      "title": "Annotation Mutations",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": { "defaults": {} },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 106 },
+      "id": 34,
+      "options": { "tooltip": { "mode": "multi" } },
+      "targets": [
+        { "expr": "sum by (status) (rate(event_cleanup_runs_total{namespace=\"$namespace\"}[5m]))", "legendFormat": "{{ status }}" },
+        { "expr": "event_cleanup_records_eligible{namespace=\"$namespace\"}", "legendFormat": "eligible records" }
+      ],
+      "title": "Cleanup Activity",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["kubernetes", "events", "notifications"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "definition": "label_values(event_component_up, namespace)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Namespace",
+        "multi": false,
+        "name": "namespace",
+        "options": [],
+        "query": { "query": "label_values(event_component_up, namespace)", "refId": "StandardVariableQuery" },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "definition": "label_values(event_events_total, resource_type)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Resource Type",
+        "multi": true,
+        "name": "resource_type",
+        "options": [],
+        "query": { "query": "label_values(event_events_total, resource_type)", "refId": "StandardVariableQuery" },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Beacon",
+  "uid": "beacon",
+  "version": 1
+}

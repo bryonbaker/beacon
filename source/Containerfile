@@ -1,0 +1,31 @@
+# Build stage
+FROM registry.fedoraproject.org/fedora-minimal:latest AS builder
+
+RUN microdnf install -y golang git gcc sqlite-devel && \
+    microdnf clean all
+
+WORKDIR /build
+
+COPY . .
+
+RUN go mod download
+
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o beacon ./cmd/beacon/
+
+# Runtime stage
+FROM registry.fedoraproject.org/fedora-minimal:latest
+
+RUN microdnf install -y ca-certificates sqlite-libs tzdata && \
+    microdnf clean all
+
+RUN useradd -r -u 1000 -s /sbin/nologin appuser
+
+RUN mkdir -p /data && chown 1000:1000 /data
+
+COPY --from=builder /build/beacon /usr/local/bin/beacon
+
+USER 1000
+
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/beacon"]

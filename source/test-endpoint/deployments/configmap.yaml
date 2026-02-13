@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: beacon-test-endpoint-config
+  namespace: beacon
+  labels:
+    app: beacon-test-endpoint
+data:
+  config.yaml: |
+    server:
+      port: 8090
+      path: /events
+      readTimeout: 30s
+      writeTimeout: 30s
+
+    behavior:
+      mode: success
+      failureRate: 0.0
+      delayMs: 0
+      statusCode: 500
+
+    logging:
+      format: json
+      level: info
+      includeHeaders: true
+      includeBody: true
+
+    idempotency:
+      enabled: true
+      maxTracked: 10000

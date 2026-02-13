@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: beacon-config
+  namespace: beacon
+  labels:
+    app: beacon
+data:
+  config.yaml: |
+    app:
+      name: beacon
+      version: "1.0.0"
+      logLevel: info
+      logFormat: json
+
+    resources:
+      - apiVersion: v1
+        kind: Pod
+        namespaces: []
+      - apiVersion: inference.bakerapps.net/v1
+        kind: LLMInferenceService
+        namespaces: []
+
+    annotation:
+      key: bakerapps.net.maas
+      values:
+        - "true"
+
+    endpoint:
+      url: "http://beacon-test-endpoint.beacon.svc.cluster.local:8090/events"
+      method: POST
+      timeout: "30s"
+      retry:
+        maxAttempts: 10
+        initialBackoff: "1s"
+        maxBackoff: "5m"
+        backoffMultiplier: 2.0
+        jitter: 0.1
+      headers:
+        Content-Type: application/json
+      tls:
+        insecureSkipVerify: false
+        caFile: ""
+
+    worker:
+      pollInterval: "5s"
+      batchSize: 10
+      concurrency: 5
+
+    reconciliation:
+      enabled: true
+      interval: "15m"
+      onStartup: true
+      timeout: "10m"
+
+    retention:
+      enabled: true
+      cleanupInterval: "1h"
+      retentionPeriod: "48h"
+
+    storage:
+      monitorInterval: "1m"
+      dbPath: /data/events.db
+      volumePath: /data
+      warningThreshold: 80
+      criticalThreshold: 90
+
+    metrics:
+      enabled: true
+      port: 8080
+      path: /metrics
+
+    health:
+      livenessPath: /healthz
+      readinessPath: /ready
+      port: 8080

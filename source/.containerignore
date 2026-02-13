@@ -1,0 +1,6 @@
+.git
+*.md
+test/
+grafana/
+deployments/
+vendor/

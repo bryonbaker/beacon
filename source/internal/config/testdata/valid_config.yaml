@@ -1,0 +1,72 @@
+app:
+  name: beacon
+  version: "1.0.0"
+  logLevel: debug
+  logFormat: json
+
+resources:
+  - apiVersion: maas.io/v1
+    kind: Machine
+    namespaces:
+      - maas-system
+      - maas-production
+  - apiVersion: v1
+    kind: ConfigMap
+    namespaces:
+      - default
+
+annotation:
+  key: bakerapps.net.maas
+  values:
+    - managed
+    - tracked
+
+endpoint:
+  url: https://example.com/api/notify
+  method: POST
+  timeout: 30s
+  retry:
+    maxAttempts: 10
+    initialBackoff: 1s
+    maxBackoff: 5m
+    backoffMultiplier: 2.0
+    jitter: 0.1
+  headers:
+    Content-Type: application/json
+    X-Source: beacon
+  tls:
+    insecureSkipVerify: false
+    caFile: /etc/ssl/certs/ca.pem
+
+worker:
+  pollInterval: 5s
+  batchSize: 10
+  concurrency: 5
+
+reconciliation:
+  enabled: true
+  interval: 15m
+  onStartup: true
+  timeout: 10m
+
+retention:
+  enabled: true
+  cleanupInterval: 1h
+  retentionPeriod: 48h
+
+storage:
+  monitorInterval: 1m
+  dbPath: /data/events.db
+  volumePath: /data
+  warningThreshold: 80
+  criticalThreshold: 90
+
+metrics:
+  enabled: true
+  port: 8080
+  path: /metrics
+
+health:
+  livenessPath: /healthz
+  readinessPath: /ready
+  port: 8080

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: beacon-test-endpoint
+  namespace: beacon
+  labels:
+    app: beacon-test-endpoint
+spec:
+  type: ClusterIP
+  selector:
+    app: beacon-test-endpoint
+  ports:
+    - name: http
+      port: 8090
+      targetPort: http
+      protocol: TCP

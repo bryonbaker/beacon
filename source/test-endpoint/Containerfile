@@ -1,0 +1,29 @@
+# Build stage
+FROM registry.fedoraproject.org/fedora-minimal:latest AS builder
+
+RUN microdnf install -y golang git && \
+    microdnf clean all
+
+WORKDIR /build
+
+COPY . .
+
+RUN go mod download
+
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o beacon-test-endpoint ./cmd/test-endpoint/
+
+# Runtime stage
+FROM registry.fedoraproject.org/fedora-minimal:latest
+
+RUN microdnf install -y ca-certificates tzdata && \
+    microdnf clean all
+
+RUN useradd -r -u 1000 -s /sbin/nologin appuser
+
+COPY --from=builder /build/beacon-test-endpoint /usr/local/bin/beacon-test-endpoint
+
+USER 1000
+
+EXPOSE 8090
+
+ENTRYPOINT ["/usr/local/bin/beacon-test-endpoint"]
