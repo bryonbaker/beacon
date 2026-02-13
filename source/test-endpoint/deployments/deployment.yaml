@@ -15,6 +15,10 @@ spec:
       labels:
         app: beacon-test-endpoint
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: beacon-test-endpoint
           image: quay.io/bryonbaker/beacon-test-endpoint:latest
@@ -24,6 +28,12 @@ spec:
             - containerPort: 8090
               name: http
               protocol: TCP
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               memory: "128Mi"

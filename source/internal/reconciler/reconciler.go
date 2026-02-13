@@ -276,7 +276,7 @@ func (r *Reconciler) listPods(ctx context.Context, res config.ResourceConfig) (m
 
 // listDynamic lists custom resources using the dynamic client and filters by annotation.
 func (r *Reconciler) listDynamic(ctx context.Context, res config.ResourceConfig) (map[string]struct{}, map[string]*models.ManagedObject, error) {
-	gvr, err := parseGVR(res.APIVersion, res.Kind)
+	gvr, err := parseGVR(res.APIVersion, res.Kind, res.Resource)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parsing GVR for %s/%s: %w", res.APIVersion, res.Kind, err)
 	}
@@ -332,8 +332,10 @@ func (r *Reconciler) getAnnotation(annotations map[string]string) (string, bool)
 	return val, ok
 }
 
-// parseGVR parses an apiVersion and kind into a GroupVersionResource.
-func parseGVR(apiVersion, kind string) (schema.GroupVersionResource, error) {
+// parseGVR parses an apiVersion, kind, and optional resource name into a
+// GroupVersionResource. If resource is provided it is used as-is; otherwise
+// the kind is lowercased with an "s" suffix as a fallback heuristic.
+func parseGVR(apiVersion, kind, resource string) (schema.GroupVersionResource, error) {
 	var group, version string
 	parts := strings.SplitN(apiVersion, "/", 2)
 	if len(parts) == 1 {
@@ -344,7 +346,9 @@ func parseGVR(apiVersion, kind string) (schema.GroupVersionResource, error) {
 		version = parts[1]
 	}
 
-	resource := strings.ToLower(kind) + "s"
+	if resource == "" {
+		resource = strings.ToLower(kind) + "s"
+	}
 
 	return schema.GroupVersionResource{
 		Group:    group,

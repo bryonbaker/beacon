@@ -8,7 +8,7 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch"]
-  - apiGroups: ["inference.bakerapps.net"]
+  - apiGroups: ["serving.kserve.io/v1alpha1"]
     resources: ["llminferenceservices"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["coordination.k8s.io"]

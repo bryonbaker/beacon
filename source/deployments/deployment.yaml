@@ -21,12 +21,11 @@ spec:
       terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: beacon
-          image: quay.io/beacon:latest
+          image: quay.io/bryonbaker/beacon:latest
           ports:
             - containerPort: 8080
               name: http

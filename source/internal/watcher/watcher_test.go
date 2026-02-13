@@ -281,18 +281,20 @@ func TestParseGVR(t *testing.T) {
 	tests := []struct {
 		apiVersion string
 		kind       string
+		resource   string
 		wantGroup  string
 		wantVer    string
 		wantRes    string
 	}{
-		{"v1", "Pod", "", "v1", "pods"},
-		{"apps/v1", "Deployment", "apps", "v1", "deployments"},
-		{"example.com/v1alpha1", "Widget", "example.com", "v1alpha1", "widgets"},
+		{"v1", "Pod", "", "", "v1", "pods"},
+		{"apps/v1", "Deployment", "", "apps", "v1", "deployments"},
+		{"example.com/v1alpha1", "Widget", "", "example.com", "v1alpha1", "widgets"},
+		{"inference.bakerapps.net/v1", "LLMInferenceService", "inferenceservices", "inference.bakerapps.net", "v1", "inferenceservices"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.apiVersion+"/"+tt.kind, func(t *testing.T) {
-			gvr, err := parseGVR(tt.apiVersion, tt.kind)
+			gvr, err := parseGVR(tt.apiVersion, tt.kind, tt.resource)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantGroup, gvr.Group)
 			assert.Equal(t, tt.wantVer, gvr.Version)

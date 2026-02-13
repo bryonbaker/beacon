@@ -66,6 +66,7 @@ type AppConfig struct {
 type ResourceConfig struct {
 	APIVersion string   `yaml:"apiVersion"`
 	Kind       string   `yaml:"kind"`
+	Resource   string   `yaml:"resource"`
 	Namespaces []string `yaml:"namespaces"`
 }
 

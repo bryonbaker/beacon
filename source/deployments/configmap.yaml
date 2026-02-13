@@ -17,8 +17,9 @@ data:
       - apiVersion: v1
         kind: Pod
         namespaces: []
-      - apiVersion: inference.bakerapps.net/v1
+      - apiVersion: serving.kserve.io/v1alpha1
         kind: LLMInferenceService
+        resource: inferenceservices
         namespaces: []
 
     annotation:

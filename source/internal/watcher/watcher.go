@@ -152,7 +152,7 @@ func (w *Watcher) startTypedPodInformer(_ context.Context, res config.ResourceCo
 
 // startDynamicInformer creates a dynamic informer for custom resources.
 func (w *Watcher) startDynamicInformer(_ context.Context, res config.ResourceConfig, resourceType string, stopCh chan struct{}) error {
-	gvr, err := parseGVR(res.APIVersion, res.Kind)
+	gvr, err := parseGVR(res.APIVersion, res.Kind, res.Resource)
 	if err != nil {
 		return fmt.Errorf("parsing GVR for %s/%s: %w", res.APIVersion, res.Kind, err)
 	}
@@ -473,9 +473,10 @@ func (w *Watcher) hasAnnotation(obj interface{}, annotationKey string) (bool, st
 	}
 }
 
-// parseGVR parses an apiVersion and kind into a GroupVersionResource.
-// For example, "apps/v1" + "Deployment" → {Group: "apps", Version: "v1", Resource: "deployments"}.
-func parseGVR(apiVersion, kind string) (schema.GroupVersionResource, error) {
+// parseGVR parses an apiVersion, kind, and optional resource name into a
+// GroupVersionResource. If resource is provided it is used as-is; otherwise
+// the kind is lowercased with an "s" suffix as a fallback heuristic.
+func parseGVR(apiVersion, kind, resource string) (schema.GroupVersionResource, error) {
 	var group, version string
 	parts := strings.SplitN(apiVersion, "/", 2)
 	if len(parts) == 1 {
@@ -486,8 +487,11 @@ func parseGVR(apiVersion, kind string) (schema.GroupVersionResource, error) {
 		version = parts[1]
 	}
 
-	// Convert Kind to lowercase plural resource name (simple heuristic).
-	resource := strings.ToLower(kind) + "s"
+	// Use the explicit resource name if provided, otherwise fall back to
+	// the simple lowercase+s heuristic.
+	if resource == "" {
+		resource = strings.ToLower(kind) + "s"
+	}
 
 	return schema.GroupVersionResource{
 		Group:    group,
