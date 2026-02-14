@@ -4,7 +4,7 @@
 
 Beacon is a Kubernetes event notification service that watches for annotated resources, persists events locally in SQLite, and delivers notifications to external HTTP endpoints with guaranteed delivery. It is designed to run as a single-replica pod inside a Kubernetes or OpenShift cluster and provides comprehensive observability through Prometheus metrics and Grafana dashboards.
 
-The service monitors Kubernetes resources for the presence of the `bakerapps.net.maas` annotation. When an annotated resource is created, updated (annotation added or removed), or deleted, Beacon records the event in a local SQLite database and delivers a JSON notification to a configurable HTTP endpoint. A background reconciliation loop detects events that may have been missed during downtime, and a cleanup job removes stale records after a configurable retention period.
+The service monitors Kubernetes resources for the presence of a configurable annotation (set via `annotation.key` in the configuration). When an annotated resource is created, updated (annotation added or removed), or deleted, Beacon records the event in a local SQLite database and delivers a [CloudEvents v1.0](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/spec.md) notification to a configurable HTTP endpoint using structured content mode. A background reconciliation loop detects events that may have been missed during downtime, and a cleanup job removes stale records after a configurable retention period.
 
 ## Features
 
@@ -111,6 +111,8 @@ Key configuration sections:
 | `app` | Application name, version, log level, log format |
 | `resources` | Kubernetes resource types to watch (apiVersion, kind, namespaces) |
 | `annotation` | Annotation key and accepted values for filtering |
+| `payload` | Which resource annotations and labels to include in notification data |
+| `cloudEvents` | CloudEvents envelope attributes (source prefix, type prefix) |
 | `endpoint` | Notification HTTP endpoint URL, method, timeout, retry, headers, TLS |
 | `worker` | Notification poll interval, batch size, concurrency |
 | `reconciliation` | Reconciliation enabled, interval, startup run, timeout |

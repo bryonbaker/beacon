@@ -2,7 +2,7 @@
 
 A Kubernetes event notification service that watches for annotated resources, persists events to SQLite, and delivers HTTP notifications with guaranteed delivery.
 
-Beacon monitors resources for the specified annotation (e.g. `bakerapps.net.maas`). When annotated resources are created, deleted, or have the annotation added/removed, Beacon records the event locally and delivers a JSON notification to a configurable endpoint with exponential backoff retry.
+Beacon monitors Kubernetes resources for the presence of a configurable annotation. When annotated resources are created, deleted, or have the annotation added/removed, Beacon records the event locally and delivers a [CloudEvents v1.0](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/spec.md) notification to a configurable endpoint with exponential backoff retry.
 
 ## Key Features
 

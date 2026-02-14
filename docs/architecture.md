@@ -42,7 +42,7 @@
 |     |   v                                                      |
 |     |  +-------------------+                                   |
 |     |  | Notification      |  Poll DB for pending              |
-|     |  | Worker            |  Build JSON payload               |
+|     |  | Worker            |  Build CloudEvents envelope       |
 |     |  | (5s poll, batch)  |  HTTP POST with retry             |
 |     |  +--------+----------+                                   |
 |     |           |                                              |
@@ -67,12 +67,12 @@
 
 ### Normal Operation: Resource Creation
 
-1. A Kubernetes resource with the pre-determined annotation (e.g. `bakerapps.net.maas`) annotation is created in the cluster.
+1. A Kubernetes resource carrying the configured annotation (see `annotation.key` in the configuration) is created in the cluster.
 2. The Event Watcher's informer fires an `AddFunc` callback.
 3. The watcher checks for the configured annotation. If present, it extracts resource metadata and generates a UUID.
 4. A `ManagedObject` record is inserted into the SQLite database with `cluster_state=exists`, `notified_created=false`, and `detection_source=watch`.
 5. On the next poll cycle (every 5 seconds by default), the Notification Worker queries for pending notifications.
-6. The worker builds a `NotificationPayload` JSON and sends an HTTP POST to the configured endpoint.
+6. The worker builds a [CloudEvents v1.0](https://github.com/cloudevents/spec/blob/v1.0.2/cloudevents/spec.md) envelope in HTTP structured content mode (`Content-Type: application/cloudevents+json`) and sends an HTTP POST to the configured endpoint. The CloudEvents `type` attribute indicates the event kind (e.g. `net.bakerapps.beacon.resource.created`), and the business payload (resource metadata) is carried in the `data` field. See [Configuration](configuration.md#cloudevents-envelope-cloudevents) for the full envelope structure and configurable attributes.
 7. On HTTP 2xx response, the worker updates `notified_created=true` and records the `created_notification_sent_at` timestamp.
 8. The record remains in the database until the resource is deleted and fully notified.
 
@@ -175,7 +175,7 @@ Kubernetes informers handle watch disconnections automatically by re-establishin
 
 **Rationale**:
 - **Durability**: Events are recorded immediately upon detection. Even if the notification endpoint is down, the event is not lost.
-- **Idempotency**: The notification payload includes the managed object ID and resource UID, allowing the endpoint to deduplicate.
+- **Idempotency**: The CloudEvents envelope includes the managed object ID (as the `id` attribute) and the resource UID (in the `data` payload), allowing the endpoint to deduplicate.
 - **Decoupling**: The watcher and notifier are decoupled through the database. The watcher writes; the notifier reads and delivers. This allows each component to operate independently and at different speeds.
 
 ### Exponential Backoff with Jitter

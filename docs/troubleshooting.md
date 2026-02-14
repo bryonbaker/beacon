@@ -116,7 +116,7 @@ The endpoint rejects the notification payload. This is a non-retriable failure; 
 kubectl logs -n beacon -l app=beacon | grep "non-retriable\|notification_failed"
 ```
 
-Resolution: Examine the logged payload (logged at ERROR level) to understand why the endpoint rejected it. The payload format is documented in the architecture guide. If the endpoint requirements have changed, the notification payload structure may need updating.
+Resolution: Examine the logged payload (logged at ERROR level) to understand why the endpoint rejected it. Beacon sends notifications as CloudEvents v1.0 envelopes with `Content-Type: application/cloudevents+json`. The envelope structure and configurable attributes are documented in the [configuration guide](configuration.md#cloudevents-envelope-cloudevents). Ensure the receiving endpoint accepts CloudEvents structured content mode.
 
 **Cause 4: Request timeout**
 
