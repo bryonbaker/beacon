@@ -19,7 +19,7 @@ data:
         namespaces: []
       - apiVersion: serving.kserve.io/v1alpha1
         kind: LLMInferenceService
-        resource: inferenceservices
+        resource: llminferenceservices
         namespaces: []
 
     annotation:
