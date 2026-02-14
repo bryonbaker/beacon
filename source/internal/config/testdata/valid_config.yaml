@@ -29,6 +29,10 @@ payload:
     - app
     - version
 
+cloudEvents:
+  source: "/beacon"
+  typePrefix: "net.bakerapps.beacon.resource"
+
 endpoint:
   url: https://example.com/api/notify
   method: POST

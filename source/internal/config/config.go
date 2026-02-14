@@ -44,12 +44,19 @@ type PayloadConfig struct {
 	Labels      []string `yaml:"labels"`       // Label keys to include (empty = all)
 }
 
+// CloudEventsConfig controls CloudEvents v1.0 envelope attributes.
+type CloudEventsConfig struct {
+	Source     string `yaml:"source"`     // URI-reference prefix for the "source" attribute
+	TypePrefix string `yaml:"typePrefix"` // Reverse-DNS prefix for the "type" attribute
+}
+
 // Config is the top-level configuration for the beacon service.
 type Config struct {
 	App            AppConfig            `yaml:"app"`
 	Resources      []ResourceConfig     `yaml:"resources"`
 	Annotation     AnnotationConfig     `yaml:"annotation"`
 	Payload        PayloadConfig        `yaml:"payload"`
+	CloudEvents    CloudEventsConfig    `yaml:"cloudEvents"`
 	Endpoint       EndpointConfig       `yaml:"endpoint"`
 	Worker         WorkerConfig         `yaml:"worker"`
 	Reconciliation ReconciliationConfig `yaml:"reconciliation"`
@@ -192,6 +199,14 @@ func (c *Config) applyDefaults() {
 	// Annotation defaults
 	if c.Annotation.Key == "" {
 		c.Annotation.Key = "bakerapps.net.maas"
+	}
+
+	// CloudEvents defaults
+	if c.CloudEvents.Source == "" {
+		c.CloudEvents.Source = "/beacon"
+	}
+	if c.CloudEvents.TypePrefix == "" {
+		c.CloudEvents.TypePrefix = "net.bakerapps.beacon.resource"
 	}
 
 	// Endpoint defaults

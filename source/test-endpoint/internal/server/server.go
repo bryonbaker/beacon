@@ -8,38 +8,13 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/bryonbaker/beacon/test-endpoint/internal/config"
 	"github.com/bryonbaker/beacon/test-endpoint/internal/stats"
 )
-
-// EventPayload represents the JSON body sent by Beacon. The structure mirrors
-// models.NotificationPayload from the main beacon service.
-type EventPayload struct {
-	ID        string        `json:"id"`
-	Timestamp string        `json:"timestamp"`
-	EventType string        `json:"eventType"`
-	Resource  EventResource `json:"resource"`
-	Metadata  EventMetadata `json:"metadata"`
-}
-
-// EventResource contains the Kubernetes resource details within a notification.
-type EventResource struct {
-	UID             string `json:"uid"`
-	Type            string `json:"type"`
-	Name            string `json:"name"`
-	Namespace       string `json:"namespace"`
-	AnnotationValue string `json:"annotationValue"`
-}
-
-// EventMetadata contains additional metadata within a notification.
-type EventMetadata struct {
-	Annotations     map[string]string `json:"annotations,omitempty"`
-	Labels          map[string]string `json:"labels,omitempty"`
-	ResourceVersion string            `json:"resourceVersion,omitempty"`
-}
 
 // Server is the test-endpoint HTTP server.
 type Server struct {
@@ -97,47 +72,45 @@ func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate Content-Type
+	// Validate Content-Type — require CloudEvents structured content mode.
 	ct := r.Header.Get("Content-Type")
-	if ct != "application/json" {
-		http.Error(w, `{"error":"Content-Type must be application/json"}`, http.StatusUnsupportedMediaType)
+	if !strings.HasPrefix(ct, "application/cloudevents+json") {
+		http.Error(w, `{"error":"Content-Type must be application/cloudevents+json"}`, http.StatusUnsupportedMediaType)
 		return
 	}
 
-	// Validate required headers
-	eventID := r.Header.Get("X-Event-ID")
-	if eventID == "" {
-		http.Error(w, `{"error":"missing required header: X-Event-ID"}`, http.StatusBadRequest)
-		return
-	}
+	// Validate required headers.
 	requestID := r.Header.Get("X-Request-ID")
 	if requestID == "" {
 		http.Error(w, `{"error":"missing required header: X-Request-ID"}`, http.StatusBadRequest)
 		return
 	}
 
-	// Log headers if configured
+	// Log headers if configured.
 	if s.cfg.Logging.IncludeHeaders {
-		s.logInfo("headers: X-Event-ID=%s X-Request-ID=%s", eventID, requestID)
+		s.logInfo("headers: X-Request-ID=%s", requestID)
 	}
 
-	// Parse JSON body
-	var payload EventPayload
+	// Parse JSON body into a generic map so any payload shape is accepted
+	// and logged without requiring struct changes.
+	var payload map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, fmt.Sprintf(`{"error":"invalid JSON: %s"}`, err.Error()), http.StatusBadRequest)
 		return
 	}
 
-	// Log body if configured
+	// Extract event ID from the CloudEvents envelope body.
+	eventID, _ := payload["id"].(string)
+
+	// Log the full payload if configured.
 	if s.cfg.Logging.IncludeBody {
-		s.logInfo("event: id=%s type=%s resource=%s/%s namespace=%s name=%s annotation=%s",
-			payload.ID, payload.EventType, payload.Resource.Type, payload.Resource.UID,
-			payload.Resource.Namespace, payload.Resource.Name, payload.Resource.AnnotationValue)
+		pretty, _ := json.MarshalIndent(payload, "", "  ")
+		s.logInfo("event payload:\n%s", string(pretty))
 	}
 
-	// Idempotency check
+	// Idempotency check.
 	if s.cfg.Idempotency.Enabled {
-		if s.isDuplicate(eventID) {
+		if eventID != "" && s.isDuplicate(eventID) {
 			s.stats.RecordDuplicate()
 			s.logInfo("duplicate event detected: %s", eventID)
 			w.Header().Set("Content-Type", "application/json")
@@ -145,11 +118,25 @@ func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprint(w, `{"status":"duplicate","message":"event already processed"}`)
 			return
 		}
-		s.trackEventID(eventID)
+		if eventID != "" {
+			s.trackEventID(eventID)
+		}
 	}
 
-	// Record stats
-	s.stats.Record(payload.EventType, payload.Resource.Type)
+	// Extract fields needed for stats from the CloudEvents envelope.
+	eventType := ""
+	if ceType, _ := payload["type"].(string); ceType != "" {
+		if idx := strings.LastIndex(ceType, "."); idx >= 0 {
+			eventType = ceType[idx+1:]
+		}
+	}
+	resourceType := ""
+	if data, ok := payload["data"].(map[string]interface{}); ok {
+		if res, ok := data["resource"].(map[string]interface{}); ok {
+			resourceType, _ = res["type"].(string)
+		}
+	}
+	s.stats.Record(eventType, resourceType)
 
 	// Apply behavior mode
 	switch s.cfg.Behavior.Mode {

@@ -104,11 +104,11 @@ func (n *Notifier) processNotification(ctx context.Context, obj *models.ManagedO
 		return
 	}
 
-	// Build the notification payload.
-	payload := buildPayload(obj, eventType)
+	// Build the CloudEvents envelope.
+	ce := buildCloudEvent(obj, eventType, n.cfg)
 
 	// Build the HTTP request.
-	req, err := n.buildRequest(payload)
+	req, err := n.buildRequest(ce)
 	if err != nil {
 		n.logger.Error("failed to build notification request",
 			zap.String("object_id", obj.ID),
@@ -130,21 +130,27 @@ func (n *Notifier) processNotification(ctx context.Context, obj *models.ManagedO
 	n.handleResponse(obj, eventType, resp, sendErr)
 }
 
-// buildPayload constructs a NotificationPayload from a ManagedObject.
-func buildPayload(obj *models.ManagedObject, eventType string) *models.NotificationPayload {
-	payload := &models.NotificationPayload{
-		ID:        obj.ID,
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-		EventType: eventType,
-		Resource: models.NotificationResource{
-			UID:             obj.ResourceUID,
-			Type:            obj.ResourceType,
-			Name:            obj.ResourceName,
-			Namespace:       obj.ResourceNamespace,
-			AnnotationValue: obj.AnnotationValue,
-		},
-		Metadata: models.NotificationMetadata{
-			ResourceVersion: obj.ResourceVersion,
+// buildCloudEvent constructs a CloudEvents v1.0 envelope from a ManagedObject.
+func buildCloudEvent(obj *models.ManagedObject, eventType string, cfg *config.Config) *models.CloudEvent {
+	ce := &models.CloudEvent{
+		SpecVersion:     "1.0",
+		ID:              obj.ID,
+		Source:          fmt.Sprintf("%s/%s/%s", cfg.CloudEvents.Source, obj.ResourceNamespace, obj.ResourceType),
+		Type:            fmt.Sprintf("%s.%s", cfg.CloudEvents.TypePrefix, eventType),
+		Subject:         obj.ResourceName,
+		Time:            time.Now().UTC().Format(time.RFC3339),
+		DataContentType: "application/json",
+		Data: models.CloudEventData{
+			Resource: models.NotificationResource{
+				UID:             obj.ResourceUID,
+				Type:            obj.ResourceType,
+				Name:            obj.ResourceName,
+				Namespace:       obj.ResourceNamespace,
+				AnnotationValue: obj.AnnotationValue,
+			},
+			Metadata: models.NotificationMetadata{
+				ResourceVersion: obj.ResourceVersion,
+			},
 		},
 	}
 
@@ -152,7 +158,7 @@ func buildPayload(obj *models.ManagedObject, eventType string) *models.Notificat
 	if obj.Annotations != "" {
 		var annotations map[string]string
 		if err := json.Unmarshal([]byte(obj.Annotations), &annotations); err == nil && len(annotations) > 0 {
-			payload.Metadata.Annotations = annotations
+			ce.Data.Metadata.Annotations = annotations
 		}
 	}
 
@@ -160,11 +166,11 @@ func buildPayload(obj *models.ManagedObject, eventType string) *models.Notificat
 	if obj.Labels != "" {
 		var labels map[string]string
 		if err := json.Unmarshal([]byte(obj.Labels), &labels); err == nil {
-			payload.Metadata.Labels = labels
+			ce.Data.Metadata.Labels = labels
 		}
 	}
 
-	return payload
+	return ce
 }
 
 // handleResponse inspects the HTTP response (or error) and updates the
@@ -222,8 +228,8 @@ func (n *Notifier) handleResponse(obj *models.ManagedObject, eventType string, r
 
 	default:
 		// Non-retriable client error (400, 401, 403, 404, 422, etc.).
-		payload := buildPayload(obj, eventType)
-		payloadBytes, _ := json.Marshal(payload)
+		ce := buildCloudEvent(obj, eventType, n.cfg)
+		payloadBytes, _ := json.Marshal(ce)
 		n.logger.Error("non-retriable notification failure",
 			zap.String("object_id", obj.ID),
 			zap.String("event_type", eventType),
@@ -289,11 +295,11 @@ func isRetriable(statusCode int) bool {
 	}
 }
 
-// buildRequest constructs the HTTP POST request for the notification payload.
-func (n *Notifier) buildRequest(payload *models.NotificationPayload) (*http.Request, error) {
-	body, err := json.Marshal(payload)
+// buildRequest constructs the HTTP POST request for a CloudEvents envelope.
+func (n *Notifier) buildRequest(ce *models.CloudEvent) (*http.Request, error) {
+	body, err := json.Marshal(ce)
 	if err != nil {
-		return nil, fmt.Errorf("marshalling notification payload: %w", err)
+		return nil, fmt.Errorf("marshalling CloudEvent: %w", err)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, n.cfg.Endpoint.URL, bytes.NewReader(body))
@@ -302,10 +308,8 @@ func (n *Notifier) buildRequest(payload *models.NotificationPayload) (*http.Requ
 	}
 
 	// Standard headers.
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", fmt.Sprintf("beacon/%s", n.cfg.App.Version))
 	req.Header.Set("X-Request-ID", newUUID())
-	req.Header.Set("X-Event-ID", payload.ID)
 
 	// Bearer token authentication.
 	if n.cfg.AuthToken != "" {
@@ -316,6 +320,10 @@ func (n *Notifier) buildRequest(payload *models.NotificationPayload) (*http.Requ
 	for k, v := range n.cfg.Endpoint.Headers {
 		req.Header.Set(k, v)
 	}
+
+	// CloudEvents structured content mode — set after custom headers to
+	// prevent accidental override.
+	req.Header.Set("Content-Type", "application/cloudevents+json; charset=UTF-8")
 
 	return req, nil
 }

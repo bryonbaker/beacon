@@ -1,6 +1,7 @@
 package notifier
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -27,6 +28,10 @@ func testConfig() *config.Config {
 		App: config.AppConfig{
 			Name:    "beacon",
 			Version: "0.1.0-test",
+		},
+		CloudEvents: config.CloudEventsConfig{
+			Source:     "/beacon",
+			TypePrefix: "net.bakerapps.beacon.resource",
 		},
 		Endpoint: config.EndpointConfig{
 			URL:     "https://example.com/webhook",
@@ -254,9 +259,9 @@ func TestBuildRequest_ValidRequest(t *testing.T) {
 	n, _ := newTestNotifier(cfg, mockDB, mockClient)
 
 	obj := testObject()
-	payload := buildPayload(obj, "created")
+	ce := buildCloudEvent(obj, "created", cfg)
 
-	req, err := n.buildRequest(payload)
+	req, err := n.buildRequest(ce)
 	require.NoError(t, err)
 
 	assert.Equal(t, http.MethodPost, req.Method)
@@ -276,13 +281,13 @@ func TestBuildRequest_Headers(t *testing.T) {
 	n, _ := newTestNotifier(cfg, mockDB, mockClient)
 
 	obj := testObject()
-	payload := buildPayload(obj, "created")
+	ce := buildCloudEvent(obj, "created", cfg)
 
-	req, err := n.buildRequest(payload)
+	req, err := n.buildRequest(ce)
 	require.NoError(t, err)
 
-	// Content-Type
-	assert.Equal(t, "application/json", req.Header.Get("Content-Type"))
+	// Content-Type must be CloudEvents structured content mode.
+	assert.Equal(t, "application/cloudevents+json; charset=UTF-8", req.Header.Get("Content-Type"))
 
 	// User-Agent
 	assert.Equal(t, "beacon/0.1.0-test", req.Header.Get("User-Agent"))
@@ -292,8 +297,8 @@ func TestBuildRequest_Headers(t *testing.T) {
 	assert.NotEmpty(t, xRequestID, "X-Request-ID header should be present")
 	assert.Len(t, xRequestID, 36, "X-Request-ID should be a 36-char UUID string")
 
-	// X-Event-ID must match payload ID.
-	assert.Equal(t, payload.ID, req.Header.Get("X-Event-ID"))
+	// X-Event-ID must not be present in CloudEvents mode.
+	assert.Empty(t, req.Header.Get("X-Event-ID"), "X-Event-ID header should be absent")
 
 	// Authorization bearer token.
 	assert.Equal(t, "Bearer test-token-123", req.Header.Get("Authorization"))
@@ -311,60 +316,95 @@ func TestBuildRequest_NoAuthTokenOmitsHeader(t *testing.T) {
 	n, _ := newTestNotifier(cfg, mockDB, mockClient)
 
 	obj := testObject()
-	payload := buildPayload(obj, "created")
+	ce := buildCloudEvent(obj, "created", cfg)
 
-	req, err := n.buildRequest(payload)
+	req, err := n.buildRequest(ce)
 	require.NoError(t, err)
 
 	assert.Empty(t, req.Header.Get("Authorization"), "Authorization header should be absent when no token is configured")
 }
 
-func TestBuildPayload(t *testing.T) {
+func TestBuildCloudEvent(t *testing.T) {
+	cfg := testConfig()
 	obj := testObject()
 
-	payload := buildPayload(obj, "created")
+	ce := buildCloudEvent(obj, "created", cfg)
 
-	assert.Equal(t, obj.ID, payload.ID)
-	assert.Equal(t, "created", payload.EventType)
-	assert.NotEmpty(t, payload.Timestamp)
-	assert.Equal(t, obj.ResourceUID, payload.Resource.UID)
-	assert.Equal(t, obj.ResourceType, payload.Resource.Type)
-	assert.Equal(t, obj.ResourceName, payload.Resource.Name)
-	assert.Equal(t, obj.ResourceNamespace, payload.Resource.Namespace)
-	assert.Equal(t, obj.AnnotationValue, payload.Resource.AnnotationValue)
-	assert.Equal(t, obj.ResourceVersion, payload.Metadata.ResourceVersion)
-	assert.Equal(t, "test", payload.Metadata.Labels["app"])
-	assert.Equal(t, "dev", payload.Metadata.Labels["env"])
+	assert.Equal(t, "1.0", ce.SpecVersion)
+	assert.Equal(t, obj.ID, ce.ID)
+	assert.Equal(t, "/beacon/default/ConfigMap", ce.Source)
+	assert.Equal(t, "net.bakerapps.beacon.resource.created", ce.Type)
+	assert.Equal(t, obj.ResourceName, ce.Subject)
+	assert.NotEmpty(t, ce.Time)
+	assert.Equal(t, "application/json", ce.DataContentType)
+	assert.Equal(t, obj.ResourceUID, ce.Data.Resource.UID)
+	assert.Equal(t, obj.ResourceType, ce.Data.Resource.Type)
+	assert.Equal(t, obj.ResourceName, ce.Data.Resource.Name)
+	assert.Equal(t, obj.ResourceNamespace, ce.Data.Resource.Namespace)
+	assert.Equal(t, obj.AnnotationValue, ce.Data.Resource.AnnotationValue)
+	assert.Equal(t, obj.ResourceVersion, ce.Data.Metadata.ResourceVersion)
+	assert.Equal(t, "test", ce.Data.Metadata.Labels["app"])
+	assert.Equal(t, "dev", ce.Data.Metadata.Labels["env"])
 }
 
-func TestBuildPayload_WithAnnotations(t *testing.T) {
+func TestBuildCloudEvent_WithAnnotations(t *testing.T) {
+	cfg := testConfig()
 	obj := testObject()
 	obj.Annotations = `{"example.com/customer-id":"C-12345","example.com/account":"A-67890"}`
 
-	payload := buildPayload(obj, "created")
+	ce := buildCloudEvent(obj, "created", cfg)
 
-	require.NotNil(t, payload.Metadata.Annotations)
-	assert.Equal(t, "C-12345", payload.Metadata.Annotations["example.com/customer-id"])
-	assert.Equal(t, "A-67890", payload.Metadata.Annotations["example.com/account"])
+	require.NotNil(t, ce.Data.Metadata.Annotations)
+	assert.Equal(t, "C-12345", ce.Data.Metadata.Annotations["example.com/customer-id"])
+	assert.Equal(t, "A-67890", ce.Data.Metadata.Annotations["example.com/account"])
 }
 
-func TestBuildPayload_EmptyAnnotationsOmitted(t *testing.T) {
+func TestBuildCloudEvent_EmptyAnnotationsOmitted(t *testing.T) {
+	cfg := testConfig()
 	obj := testObject()
 	obj.Annotations = ""
 
-	payload := buildPayload(obj, "created")
+	ce := buildCloudEvent(obj, "created", cfg)
 
-	assert.Nil(t, payload.Metadata.Annotations)
+	assert.Nil(t, ce.Data.Metadata.Annotations)
 }
 
-func TestBuildPayload_DeletedEvent(t *testing.T) {
+func TestBuildCloudEvent_DeletedEvent(t *testing.T) {
+	cfg := testConfig()
 	obj := testObject()
 	obj.NotifiedCreated = true
 	obj.ClusterState = models.ClusterStateDeleted
 
-	payload := buildPayload(obj, "deleted")
+	ce := buildCloudEvent(obj, "deleted", cfg)
 
-	assert.Equal(t, "deleted", payload.EventType)
+	assert.Equal(t, "net.bakerapps.beacon.resource.deleted", ce.Type)
+}
+
+func TestBuildRequest_BodyStructure(t *testing.T) {
+	cfg := testConfig()
+	mockDB := new(database.MockDatabase)
+	mockClient := new(MockHTTPClient)
+
+	n, _ := newTestNotifier(cfg, mockDB, mockClient)
+
+	obj := testObject()
+	ce := buildCloudEvent(obj, "created", cfg)
+
+	req, err := n.buildRequest(ce)
+	require.NoError(t, err)
+
+	body, err := io.ReadAll(req.Body)
+	require.NoError(t, err)
+
+	var envelope map[string]interface{}
+	require.NoError(t, json.Unmarshal(body, &envelope))
+
+	assert.Equal(t, "1.0", envelope["specversion"])
+	assert.Equal(t, obj.ID, envelope["id"])
+	assert.Equal(t, "/beacon/default/ConfigMap", envelope["source"])
+	assert.Equal(t, "net.bakerapps.beacon.resource.created", envelope["type"])
+	assert.Equal(t, obj.ResourceName, envelope["subject"])
+	assert.NotNil(t, envelope["data"])
 }
 
 func TestHandleResponse_201_MarksNotified(t *testing.T) {

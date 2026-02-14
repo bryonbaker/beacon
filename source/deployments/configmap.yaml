@@ -23,17 +23,20 @@ data:
         namespaces: []
 
     annotation:
-      key: bakerapps.net.maas
+      key: bakerapps.net/maas
       values:
         - "true"
 
     payload:
       annotations:
-        - example.com/customer-id
-        - example.com/account
+        - bakerapps.net/customer-id
+        - bakerapps.net/account
       labels:
-        - app
-        - version
+        - example-label
+
+    cloudEvents:
+      source: "/beacon"
+      typePrefix: "net.bakerapps.beacon.resource"
 
     endpoint:
       url: "http://beacon-test-endpoint.beacon.svc.cluster.local:8090/events"
@@ -45,8 +48,7 @@ data:
         maxBackoff: "5m"
         backoffMultiplier: 2.0
         jitter: 0.1
-      headers:
-        Content-Type: application/json
+      headers: {}
       tls:
         insecureSkipVerify: false
         caFile: ""

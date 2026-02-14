@@ -83,13 +83,23 @@ func (m *ManagedObject) IsEligibleForCleanup(retentionPeriod time.Duration) bool
 	return time.Since(*m.DeletedAt) > retentionPeriod
 }
 
-// NotificationPayload is the JSON body sent to the notification endpoint.
-type NotificationPayload struct {
-	ID        string               `json:"id"`
-	Timestamp string               `json:"timestamp"`
-	EventType string               `json:"eventType"`
-	Resource  NotificationResource `json:"resource"`
-	Metadata  NotificationMetadata `json:"metadata"`
+// CloudEvent is a CloudEvents v1.0 structured-content-mode envelope
+// sent to the notification endpoint.
+type CloudEvent struct {
+	SpecVersion     string           `json:"specversion"`
+	ID              string           `json:"id"`
+	Source          string           `json:"source"`
+	Type            string           `json:"type"`
+	Subject         string           `json:"subject,omitempty"`
+	Time            string           `json:"time"`
+	DataContentType string           `json:"datacontenttype"`
+	Data            CloudEventData   `json:"data"`
+}
+
+// CloudEventData is the business payload within a CloudEvent.
+type CloudEventData struct {
+	Resource NotificationResource `json:"resource"`
+	Metadata NotificationMetadata `json:"metadata"`
 }
 
 // NotificationResource describes the Kubernetes resource in a notification payload.
