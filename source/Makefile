@@ -13,7 +13,7 @@ CGO_ENABLED = 1
 
 .PHONY: help deps fmt vet lint test test-coverage build build-linux clean \
         image-build image-push image-build-push \
-        deploy-manifests deploy-dev deploy-prod undeploy \
+        deploy deploy-manifests deploy-dev deploy-prod undeploy \
         logs port-forward-metrics db-shell db-query version ci release
 
 help: ## Show this help message
@@ -73,6 +73,8 @@ deploy-manifests: ## Apply all Kubernetes manifests
 	kubectl apply -f deployments/deployment.yaml
 	kubectl apply -f deployments/service.yaml
 	kubectl apply -f deployments/servicemonitor.yaml
+
+deploy: deploy-dev ## Deploy to Kubernetes (alias for deploy-dev)
 
 deploy-dev: ## Deploy to dev environment
 	@echo "Deploying to dev environment..."
