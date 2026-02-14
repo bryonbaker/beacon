@@ -36,11 +36,20 @@ func (d Duration) MarshalYAML() (interface{}, error) {
 	return d.Duration.String(), nil
 }
 
+// PayloadConfig controls which annotations and labels are included in
+// notification payloads. Empty slices give backward-compatible behaviour:
+// all labels are sent and no annotations are sent.
+type PayloadConfig struct {
+	Annotations []string `yaml:"annotations"` // Annotation keys to include in payload
+	Labels      []string `yaml:"labels"`       // Label keys to include (empty = all)
+}
+
 // Config is the top-level configuration for the beacon service.
 type Config struct {
 	App            AppConfig            `yaml:"app"`
 	Resources      []ResourceConfig     `yaml:"resources"`
 	Annotation     AnnotationConfig     `yaml:"annotation"`
+	Payload        PayloadConfig        `yaml:"payload"`
 	Endpoint       EndpointConfig       `yaml:"endpoint"`
 	Worker         WorkerConfig         `yaml:"worker"`
 	Reconciliation ReconciliationConfig `yaml:"reconciliation"`

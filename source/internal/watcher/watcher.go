@@ -372,9 +372,17 @@ func (w *Watcher) extractManagedObject(obj interface{}, resourceType string) (*m
 
 // extractFromPod extracts a ManagedObject from a typed Pod.
 func (w *Watcher) extractFromPod(pod *corev1.Pod, resourceType string) (*models.ManagedObject, error) {
-	labelsJSON, err := json.Marshal(pod.Labels)
+	labelsJSON, err := json.Marshal(w.filterLabels(pod.Labels))
 	if err != nil {
 		labelsJSON = []byte("{}")
+	}
+
+	var annotationsJSON []byte
+	if extracted := w.extractConfiguredAnnotations(pod.Annotations); extracted != nil {
+		annotationsJSON, err = json.Marshal(extracted)
+		if err != nil {
+			annotationsJSON = nil
+		}
 	}
 
 	metadataJSON, err := json.Marshal(pod.ObjectMeta)
@@ -396,6 +404,7 @@ func (w *Watcher) extractFromPod(pod *corev1.Pod, resourceType string) (*models.
 		AnnotationValue:   annotationValue,
 		ResourceVersion:   pod.ResourceVersion,
 		Labels:            string(labelsJSON),
+		Annotations:       string(annotationsJSON),
 		FullMetadata:      string(metadataJSON),
 		CreatedAt:         time.Now(),
 	}, nil
@@ -403,9 +412,17 @@ func (w *Watcher) extractFromPod(pod *corev1.Pod, resourceType string) (*models.
 
 // extractFromUnstructured extracts a ManagedObject from an unstructured object.
 func (w *Watcher) extractFromUnstructured(obj *unstructured.Unstructured, resourceType string) (*models.ManagedObject, error) {
-	labelsJSON, err := json.Marshal(obj.GetLabels())
+	labelsJSON, err := json.Marshal(w.filterLabels(obj.GetLabels()))
 	if err != nil {
 		labelsJSON = []byte("{}")
+	}
+
+	var annotationsJSON []byte
+	if extracted := w.extractConfiguredAnnotations(obj.GetAnnotations()); extracted != nil {
+		annotationsJSON, err = json.Marshal(extracted)
+		if err != nil {
+			annotationsJSON = nil
+		}
 	}
 
 	metadata := map[string]interface{}{
@@ -436,9 +453,45 @@ func (w *Watcher) extractFromUnstructured(obj *unstructured.Unstructured, resour
 		AnnotationValue:   annotationValue,
 		ResourceVersion:   obj.GetResourceVersion(),
 		Labels:            string(labelsJSON),
+		Annotations:       string(annotationsJSON),
 		FullMetadata:      string(metadataJSON),
 		CreatedAt:         time.Now(),
 	}, nil
+}
+
+// filterLabels returns a filtered copy of allLabels containing only the keys
+// listed in cfg.Payload.Labels. If no label filter is configured, all labels
+// are returned unchanged.
+func (w *Watcher) filterLabels(allLabels map[string]string) map[string]string {
+	if len(w.cfg.Payload.Labels) == 0 {
+		return allLabels
+	}
+	filtered := make(map[string]string, len(w.cfg.Payload.Labels))
+	for _, key := range w.cfg.Payload.Labels {
+		if val, ok := allLabels[key]; ok {
+			filtered[key] = val
+		}
+	}
+	return filtered
+}
+
+// extractConfiguredAnnotations returns a map containing only the annotation
+// keys listed in cfg.Payload.Annotations. If no annotation keys are configured,
+// nil is returned.
+func (w *Watcher) extractConfiguredAnnotations(allAnnotations map[string]string) map[string]string {
+	if len(w.cfg.Payload.Annotations) == 0 {
+		return nil
+	}
+	extracted := make(map[string]string, len(w.cfg.Payload.Annotations))
+	for _, key := range w.cfg.Payload.Annotations {
+		if val, ok := allAnnotations[key]; ok {
+			extracted[key] = val
+		}
+	}
+	if len(extracted) == 0 {
+		return nil
+	}
+	return extracted
 }
 
 // hasAnnotation checks whether a Kubernetes object carries the specified

@@ -337,6 +337,26 @@ func TestBuildPayload(t *testing.T) {
 	assert.Equal(t, "dev", payload.Metadata.Labels["env"])
 }
 
+func TestBuildPayload_WithAnnotations(t *testing.T) {
+	obj := testObject()
+	obj.Annotations = `{"example.com/customer-id":"C-12345","example.com/account":"A-67890"}`
+
+	payload := buildPayload(obj, "created")
+
+	require.NotNil(t, payload.Metadata.Annotations)
+	assert.Equal(t, "C-12345", payload.Metadata.Annotations["example.com/customer-id"])
+	assert.Equal(t, "A-67890", payload.Metadata.Annotations["example.com/account"])
+}
+
+func TestBuildPayload_EmptyAnnotationsOmitted(t *testing.T) {
+	obj := testObject()
+	obj.Annotations = ""
+
+	payload := buildPayload(obj, "created")
+
+	assert.Nil(t, payload.Metadata.Annotations)
+}
+
 func TestBuildPayload_DeletedEvent(t *testing.T) {
 	obj := testObject()
 	obj.NotifiedCreated = true

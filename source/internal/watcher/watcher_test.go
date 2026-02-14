@@ -277,6 +277,134 @@ func TestHasAnnotation_Unstructured(t *testing.T) {
 	assert.Equal(t, "uns-val", val)
 }
 
+func TestExtractManagedObject_Pod_FilteredLabels(t *testing.T) {
+	mockDB := new(database.MockDatabase)
+	w := newTestWatcher(mockDB)
+	w.cfg.Payload.Labels = []string{"app"}
+
+	pod := newAnnotatedPod("test-pod", "default", "uid-fl", "enabled")
+	pod.Labels["env"] = "production"
+	pod.Labels["version"] = "v1"
+
+	mo, err := w.extractManagedObject(pod, "Pod")
+	require.NoError(t, err)
+
+	// Only "app" should be in the labels JSON.
+	assert.Contains(t, mo.Labels, `"app"`)
+	assert.NotContains(t, mo.Labels, `"env"`)
+	assert.NotContains(t, mo.Labels, `"version"`)
+}
+
+func TestExtractManagedObject_Pod_NoLabelFilterSendsAll(t *testing.T) {
+	mockDB := new(database.MockDatabase)
+	w := newTestWatcher(mockDB)
+	// No payload.labels configured — all labels should be present.
+
+	pod := newAnnotatedPod("test-pod", "default", "uid-nf", "enabled")
+	pod.Labels["env"] = "test"
+
+	mo, err := w.extractManagedObject(pod, "Pod")
+	require.NoError(t, err)
+
+	assert.Contains(t, mo.Labels, `"app"`)
+	assert.Contains(t, mo.Labels, `"env"`)
+}
+
+func TestExtractManagedObject_Pod_ExtractsConfiguredAnnotations(t *testing.T) {
+	mockDB := new(database.MockDatabase)
+	w := newTestWatcher(mockDB)
+	w.cfg.Payload.Annotations = []string{"example.com/owner"}
+
+	pod := newAnnotatedPod("test-pod", "default", "uid-ea", "enabled")
+	pod.Annotations["example.com/owner"] = "team-platform"
+	pod.Annotations["example.com/other"] = "should-not-appear"
+
+	mo, err := w.extractManagedObject(pod, "Pod")
+	require.NoError(t, err)
+
+	assert.Contains(t, mo.Annotations, `"example.com/owner"`)
+	assert.Contains(t, mo.Annotations, `"team-platform"`)
+	assert.NotContains(t, mo.Annotations, `"example.com/other"`)
+}
+
+func TestExtractManagedObject_Pod_NoAnnotationConfigEmpty(t *testing.T) {
+	mockDB := new(database.MockDatabase)
+	w := newTestWatcher(mockDB)
+	// No payload.annotations configured — annotations field should be empty.
+
+	pod := newAnnotatedPod("test-pod", "default", "uid-na", "enabled")
+	pod.Annotations["example.com/owner"] = "team-platform"
+
+	mo, err := w.extractManagedObject(pod, "Pod")
+	require.NoError(t, err)
+
+	assert.Empty(t, mo.Annotations)
+}
+
+func TestExtractManagedObject_Unstructured_FilteredLabels(t *testing.T) {
+	mockDB := new(database.MockDatabase)
+	w := newTestWatcher(mockDB)
+	w.cfg.Payload.Labels = []string{"team"}
+
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "example.com/v1",
+			"kind":       "Widget",
+			"metadata": map[string]interface{}{
+				"name":            "my-widget",
+				"namespace":       "ns",
+				"uid":             "uns-uid-fl",
+				"resourceVersion": "1",
+				"labels": map[string]interface{}{
+					"team": "platform",
+					"env":  "staging",
+				},
+				"annotations": map[string]interface{}{
+					testAnnotationKey: "yes",
+				},
+			},
+		},
+	}
+
+	mo, err := w.extractManagedObject(obj, "Widget")
+	require.NoError(t, err)
+
+	assert.Contains(t, mo.Labels, `"team"`)
+	assert.NotContains(t, mo.Labels, `"env"`)
+}
+
+func TestExtractManagedObject_Unstructured_ExtractsConfiguredAnnotations(t *testing.T) {
+	mockDB := new(database.MockDatabase)
+	w := newTestWatcher(mockDB)
+	w.cfg.Payload.Annotations = []string{"example.com/cost-center"}
+
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "example.com/v1",
+			"kind":       "Widget",
+			"metadata": map[string]interface{}{
+				"name":            "my-widget",
+				"namespace":       "ns",
+				"uid":             "uns-uid-ea",
+				"resourceVersion": "1",
+				"labels":          map[string]interface{}{},
+				"annotations": map[string]interface{}{
+					testAnnotationKey:        "yes",
+					"example.com/cost-center": "CC-1234",
+					"example.com/other":       "nope",
+				},
+			},
+		},
+	}
+
+	mo, err := w.extractManagedObject(obj, "Widget")
+	require.NoError(t, err)
+
+	assert.Contains(t, mo.Annotations, `"example.com/cost-center"`)
+	assert.Contains(t, mo.Annotations, `"CC-1234"`)
+	assert.NotContains(t, mo.Annotations, `"example.com/other"`)
+}
+
 func TestParseGVR(t *testing.T) {
 	tests := []struct {
 		apiVersion string

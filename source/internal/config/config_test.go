@@ -36,6 +36,10 @@ func TestLoadValidConfig(t *testing.T) {
 	assert.Equal(t, "bakerapps.net.maas", cfg.Annotation.Key)
 	assert.Equal(t, []string{"managed", "tracked"}, cfg.Annotation.Values)
 
+	// Payload
+	assert.Equal(t, []string{"example.com/customer-id", "example.com/account"}, cfg.Payload.Annotations)
+	assert.Equal(t, []string{"app", "version"}, cfg.Payload.Labels)
+
 	// Endpoint
 	assert.Equal(t, "https://example.com/api/notify", cfg.Endpoint.URL)
 	assert.Equal(t, "POST", cfg.Endpoint.Method)
@@ -99,6 +103,8 @@ func TestLoadMinimalConfigAppliesDefaults(t *testing.T) {
 	assert.Equal(t, "info", cfg.App.LogLevel)
 	assert.Equal(t, "json", cfg.App.LogFormat)
 	assert.Equal(t, "bakerapps.net.maas", cfg.Annotation.Key)
+	assert.Nil(t, cfg.Payload.Annotations, "payload.annotations should be nil when not configured")
+	assert.Nil(t, cfg.Payload.Labels, "payload.labels should be nil when not configured")
 	assert.Equal(t, "POST", cfg.Endpoint.Method)
 	assert.Equal(t, 30*time.Second, cfg.Endpoint.Timeout.Duration)
 	assert.Equal(t, 10, cfg.Endpoint.Retry.MaxAttempts)

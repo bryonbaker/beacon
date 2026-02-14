@@ -48,6 +48,7 @@ type ManagedObject struct {
 	NotificationAttempts      int        `json:"notification_attempts"`
 	LastNotificationAttempt   *time.Time `json:"last_notification_attempt,omitempty"`
 	Labels                    string     `json:"labels,omitempty"`
+	Annotations               string     `json:"annotations,omitempty"`
 	ResourceVersion           string     `json:"resource_version,omitempty"`
 	FullMetadata              string     `json:"full_metadata,omitempty"`
 }
@@ -102,6 +103,7 @@ type NotificationResource struct {
 
 // NotificationMetadata contains additional metadata for a notification payload.
 type NotificationMetadata struct {
+	Annotations     map[string]string `json:"annotations,omitempty"`
 	Labels          map[string]string `json:"labels,omitempty"`
 	ResourceVersion string            `json:"resourceVersion,omitempty"`
 }

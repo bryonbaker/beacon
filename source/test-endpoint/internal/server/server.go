@@ -36,6 +36,7 @@ type EventResource struct {
 
 // EventMetadata contains additional metadata within a notification.
 type EventMetadata struct {
+	Annotations     map[string]string `json:"annotations,omitempty"`
 	Labels          map[string]string `json:"labels,omitempty"`
 	ResourceVersion string            `json:"resourceVersion,omitempty"`
 }

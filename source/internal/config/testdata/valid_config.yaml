@@ -21,6 +21,14 @@ annotation:
     - managed
     - tracked
 
+payload:
+  annotations:
+    - example.com/customer-id
+    - example.com/account
+  labels:
+    - app
+    - version
+
 endpoint:
   url: https://example.com/api/notify
   method: POST

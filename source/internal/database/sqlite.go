@@ -47,6 +47,11 @@ func NewSQLiteDB(dbPath string, logger *zap.Logger) (*SQLiteDB, error) {
 		return nil, fmt.Errorf("failed to create schema: %w", err)
 	}
 
+	if err := s.migrateSchema(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to migrate schema: %w", err)
+	}
+
 	logger.Info("SQLite database initialised", zap.String("path", dbPath))
 	return s, nil
 }
@@ -91,6 +96,7 @@ CREATE TABLE IF NOT EXISTS managed_objects (
     notification_attempts        INTEGER NOT NULL DEFAULT 0,
     last_notification_attempt    TEXT,
     labels                       TEXT NOT NULL DEFAULT '',
+    annotations                  TEXT NOT NULL DEFAULT '',
     resource_version             TEXT NOT NULL DEFAULT '',
     full_metadata                TEXT NOT NULL DEFAULT ''
 );`
@@ -117,6 +123,44 @@ CREATE TABLE IF NOT EXISTS managed_objects (
 	return nil
 }
 
+// migrateSchema applies incremental schema migrations for existing databases.
+func (s *SQLiteDB) migrateSchema() error {
+	// Check whether the annotations column already exists.
+	rows, err := s.db.Query("PRAGMA table_info(managed_objects)")
+	if err != nil {
+		return fmt.Errorf("reading table info: %w", err)
+	}
+	defer rows.Close()
+
+	hasAnnotations := false
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull int
+		var dfltValue sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("scanning table info: %w", err)
+		}
+		if name == "annotations" {
+			hasAnnotations = true
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterating table info: %w", err)
+	}
+
+	if !hasAnnotations {
+		if _, err := s.db.Exec("ALTER TABLE managed_objects ADD COLUMN annotations TEXT NOT NULL DEFAULT ''"); err != nil {
+			return fmt.Errorf("adding annotations column: %w", err)
+		}
+		s.logger.Info("migrated schema: added annotations column")
+	}
+
+	return nil
+}
+
 // Close closes the underlying database connection.
 func (s *SQLiteDB) Close() error {
 	return s.db.Close()
@@ -135,8 +179,8 @@ INSERT INTO managed_objects (
     annotation_value, cluster_state, detection_source, created_at, deleted_at,
     last_reconciled, notified_created, notified_deleted, notification_failed,
     notification_failed_code, created_notification_sent_at, deleted_notification_sent_at,
-    notification_attempts, last_notification_attempt, labels, resource_version, full_metadata
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    notification_attempts, last_notification_attempt, labels, annotations, resource_version, full_metadata
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err := s.db.Exec(query,
 		obj.ID,
@@ -159,6 +203,7 @@ INSERT INTO managed_objects (
 		obj.NotificationAttempts,
 		formatNullableTime(obj.LastNotificationAttempt),
 		obj.Labels,
+		obj.Annotations,
 		obj.ResourceVersion,
 		obj.FullMetadata,
 	)
@@ -175,7 +220,7 @@ func (s *SQLiteDB) GetManagedObjectByUID(uid string) (*models.ManagedObject, err
     annotation_value, cluster_state, detection_source, created_at, deleted_at,
     last_reconciled, notified_created, notified_deleted, notification_failed,
     notification_failed_code, created_notification_sent_at, deleted_notification_sent_at,
-    notification_attempts, last_notification_attempt, labels, resource_version, full_metadata
+    notification_attempts, last_notification_attempt, labels, annotations, resource_version, full_metadata
 FROM managed_objects WHERE resource_uid = ?`
 
 	return s.scanManagedObject(s.db.QueryRow(query, uid))
@@ -188,7 +233,7 @@ func (s *SQLiteDB) GetManagedObjectByID(id string) (*models.ManagedObject, error
     annotation_value, cluster_state, detection_source, created_at, deleted_at,
     last_reconciled, notified_created, notified_deleted, notification_failed,
     notification_failed_code, created_notification_sent_at, deleted_notification_sent_at,
-    notification_attempts, last_notification_attempt, labels, resource_version, full_metadata
+    notification_attempts, last_notification_attempt, labels, annotations, resource_version, full_metadata
 FROM managed_objects WHERE id = ?`
 
 	return s.scanManagedObject(s.db.QueryRow(query, id))
@@ -269,7 +314,7 @@ func (s *SQLiteDB) GetPendingNotifications(limit int) ([]*models.ManagedObject, 
     annotation_value, cluster_state, detection_source, created_at, deleted_at,
     last_reconciled, notified_created, notified_deleted, notification_failed,
     notification_failed_code, created_notification_sent_at, deleted_notification_sent_at,
-    notification_attempts, last_notification_attempt, labels, resource_version, full_metadata
+    notification_attempts, last_notification_attempt, labels, annotations, resource_version, full_metadata
 FROM managed_objects
 WHERE (notified_created = 0 OR (cluster_state = 'deleted' AND notified_deleted = 0))
   AND notification_failed = 0
@@ -287,7 +332,7 @@ func (s *SQLiteDB) GetAllActiveObjects(resourceType string) ([]*models.ManagedOb
     annotation_value, cluster_state, detection_source, created_at, deleted_at,
     last_reconciled, notified_created, notified_deleted, notification_failed,
     notification_failed_code, created_notification_sent_at, deleted_notification_sent_at,
-    notification_attempts, last_notification_attempt, labels, resource_version, full_metadata
+    notification_attempts, last_notification_attempt, labels, annotations, resource_version, full_metadata
 FROM managed_objects
 WHERE cluster_state = 'exists' AND resource_type = ?`
 
@@ -304,7 +349,7 @@ func (s *SQLiteDB) GetCleanupEligible(retentionPeriod time.Duration) ([]*models.
     annotation_value, cluster_state, detection_source, created_at, deleted_at,
     last_reconciled, notified_created, notified_deleted, notification_failed,
     notification_failed_code, created_notification_sent_at, deleted_notification_sent_at,
-    notification_attempts, last_notification_attempt, labels, resource_version, full_metadata
+    notification_attempts, last_notification_attempt, labels, annotations, resource_version, full_metadata
 FROM managed_objects
 WHERE cluster_state = 'deleted'
   AND notified_deleted = 1
@@ -409,6 +454,7 @@ func (s *SQLiteDB) scanManagedObject(row *sql.Row) (*models.ManagedObject, error
 		&obj.NotificationAttempts,
 		&lastAttempt,
 		&obj.Labels,
+		&obj.Annotations,
 		&obj.ResourceVersion,
 		&obj.FullMetadata,
 	)
@@ -489,6 +535,7 @@ func (s *SQLiteDB) queryManagedObjects(query string, args ...interface{}) ([]*mo
 			&obj.NotificationAttempts,
 			&lastAttempt,
 			&obj.Labels,
+			&obj.Annotations,
 			&obj.ResourceVersion,
 			&obj.FullMetadata,
 		)

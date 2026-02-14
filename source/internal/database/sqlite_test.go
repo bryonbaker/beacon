@@ -33,6 +33,7 @@ func newTestObject(id, uid string) *models.ManagedObject {
 		ClusterState:      models.ClusterStateExists,
 		DetectionSource:   models.DetectionSourceWatch,
 		CreatedAt:         time.Now().Truncate(time.Second),
+		Annotations:       `{"example.com/customer-id":"C-123"}`,
 	}
 }
 
@@ -75,6 +76,30 @@ func TestInsertAndGetByID(t *testing.T) {
 	got, err := db.GetManagedObjectByID("id-2")
 	require.NoError(t, err)
 	assert.Equal(t, obj.ResourceUID, got.ResourceUID)
+}
+
+func TestInsertAndGetAnnotationsRoundTrip(t *testing.T) {
+	db := newTestDB(t)
+	obj := newTestObject("id-ann", "uid-ann")
+	obj.Annotations = `{"example.com/customer-id":"C-999","example.com/account":"A-111"}`
+
+	require.NoError(t, db.InsertManagedObject(obj))
+
+	got, err := db.GetManagedObjectByUID("uid-ann")
+	require.NoError(t, err)
+	assert.Equal(t, obj.Annotations, got.Annotations)
+}
+
+func TestInsertAndGetEmptyAnnotations(t *testing.T) {
+	db := newTestDB(t)
+	obj := newTestObject("id-noann", "uid-noann")
+	obj.Annotations = ""
+
+	require.NoError(t, db.InsertManagedObject(obj))
+
+	got, err := db.GetManagedObjectByUID("uid-noann")
+	require.NoError(t, err)
+	assert.Empty(t, got.Annotations)
 }
 
 // --------------------------------------------------------------------------

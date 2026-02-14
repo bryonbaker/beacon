@@ -148,6 +148,14 @@ func buildPayload(obj *models.ManagedObject, eventType string) *models.Notificat
 		},
 	}
 
+	// Parse annotations JSON into map if present.
+	if obj.Annotations != "" {
+		var annotations map[string]string
+		if err := json.Unmarshal([]byte(obj.Annotations), &annotations); err == nil && len(annotations) > 0 {
+			payload.Metadata.Annotations = annotations
+		}
+	}
+
 	// Parse labels JSON into map if present.
 	if obj.Labels != "" {
 		var labels map[string]string

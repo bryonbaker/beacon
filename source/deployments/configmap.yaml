@@ -27,6 +27,14 @@ data:
       values:
         - "true"
 
+    payload:
+      annotations:
+        - example.com/customer-id
+        - example.com/account
+      labels:
+        - app
+        - version
+
     endpoint:
       url: "http://beacon-test-endpoint.beacon.svc.cluster.local:8090/events"
       method: POST

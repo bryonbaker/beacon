@@ -6,6 +6,7 @@ package reconciler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -256,6 +257,12 @@ func (r *Reconciler) listPods(ctx context.Context, res config.ResourceConfig) (m
 				continue
 			}
 
+			labelsJSON, _ := json.Marshal(r.filterLabels(pod.Labels))
+			var annotationsJSON []byte
+			if extracted := r.extractConfiguredAnnotations(pod.Annotations); extracted != nil {
+				annotationsJSON, _ = json.Marshal(extracted)
+			}
+
 			uid := string(pod.UID)
 			uidSet[uid] = struct{}{}
 			objMap[uid] = &models.ManagedObject{
@@ -266,6 +273,8 @@ func (r *Reconciler) listPods(ctx context.Context, res config.ResourceConfig) (m
 				ResourceNamespace: pod.Namespace,
 				AnnotationValue:   annotationValue,
 				ResourceVersion:   pod.ResourceVersion,
+				Labels:            string(labelsJSON),
+				Annotations:       string(annotationsJSON),
 				CreatedAt:         time.Now(),
 			}
 		}
@@ -303,6 +312,12 @@ func (r *Reconciler) listDynamic(ctx context.Context, res config.ResourceConfig)
 				continue
 			}
 
+			labelsJSON, _ := json.Marshal(r.filterLabels(item.GetLabels()))
+			var annotationsJSON []byte
+			if extracted := r.extractConfiguredAnnotations(annotations); extracted != nil {
+				annotationsJSON, _ = json.Marshal(extracted)
+			}
+
 			uid := string(item.GetUID())
 			uidSet[uid] = struct{}{}
 			objMap[uid] = &models.ManagedObject{
@@ -313,12 +328,49 @@ func (r *Reconciler) listDynamic(ctx context.Context, res config.ResourceConfig)
 				ResourceNamespace: item.GetNamespace(),
 				AnnotationValue:   annotationValue,
 				ResourceVersion:   item.GetResourceVersion(),
+				Labels:            string(labelsJSON),
+				Annotations:       string(annotationsJSON),
 				CreatedAt:         time.Now(),
 			}
 		}
 	}
 
 	return uidSet, objMap, nil
+}
+
+// filterLabels returns a filtered copy of allLabels containing only the keys
+// listed in cfg.Payload.Labels. If no label filter is configured, all labels
+// are returned unchanged.
+func (r *Reconciler) filterLabels(allLabels map[string]string) map[string]string {
+	if len(r.cfg.Payload.Labels) == 0 {
+		return allLabels
+	}
+	filtered := make(map[string]string, len(r.cfg.Payload.Labels))
+	for _, key := range r.cfg.Payload.Labels {
+		if val, ok := allLabels[key]; ok {
+			filtered[key] = val
+		}
+	}
+	return filtered
+}
+
+// extractConfiguredAnnotations returns a map containing only the annotation
+// keys listed in cfg.Payload.Annotations. If no annotation keys are configured,
+// nil is returned.
+func (r *Reconciler) extractConfiguredAnnotations(allAnnotations map[string]string) map[string]string {
+	if len(r.cfg.Payload.Annotations) == 0 {
+		return nil
+	}
+	extracted := make(map[string]string, len(r.cfg.Payload.Annotations))
+	for _, key := range r.cfg.Payload.Annotations {
+		if val, ok := allAnnotations[key]; ok {
+			extracted[key] = val
+		}
+	}
+	if len(extracted) == 0 {
+		return nil
+	}
+	return extracted
 }
 
 // getAnnotation checks whether the given annotations map contains the
