@@ -15,15 +15,29 @@ import (
 	"github.com/bryonbaker/beacon/test-endpoint/internal/stats"
 )
 
-// EventPayload represents the JSON body sent by Beacon.
+// EventPayload represents the JSON body sent by Beacon. The structure mirrors
+// models.NotificationPayload from the main beacon service.
 type EventPayload struct {
-	EventID      string                 `json:"event_id"`
-	EventType    string                 `json:"event_type"`
-	ResourceType string                 `json:"resource_type"`
-	Namespace    string                 `json:"namespace"`
-	Name         string                 `json:"name"`
-	Timestamp    string                 `json:"timestamp"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	ID        string        `json:"id"`
+	Timestamp string        `json:"timestamp"`
+	EventType string        `json:"eventType"`
+	Resource  EventResource `json:"resource"`
+	Metadata  EventMetadata `json:"metadata"`
+}
+
+// EventResource contains the Kubernetes resource details within a notification.
+type EventResource struct {
+	UID             string `json:"uid"`
+	Type            string `json:"type"`
+	Name            string `json:"name"`
+	Namespace       string `json:"namespace"`
+	AnnotationValue string `json:"annotationValue"`
+}
+
+// EventMetadata contains additional metadata within a notification.
+type EventMetadata struct {
+	Labels          map[string]string `json:"labels,omitempty"`
+	ResourceVersion string            `json:"resourceVersion,omitempty"`
 }
 
 // Server is the test-endpoint HTTP server.
@@ -115,8 +129,9 @@ func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
 
 	// Log body if configured
 	if s.cfg.Logging.IncludeBody {
-		s.logInfo("event: type=%s resource=%s namespace=%s name=%s",
-			payload.EventType, payload.ResourceType, payload.Namespace, payload.Name)
+		s.logInfo("event: id=%s type=%s resource=%s/%s namespace=%s name=%s annotation=%s",
+			payload.ID, payload.EventType, payload.Resource.Type, payload.Resource.UID,
+			payload.Resource.Namespace, payload.Resource.Name, payload.Resource.AnnotationValue)
 	}
 
 	// Idempotency check
@@ -133,7 +148,7 @@ func (s *Server) handleEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Record stats
-	s.stats.Record(payload.EventType, payload.ResourceType)
+	s.stats.Record(payload.EventType, payload.Resource.Type)
 
 	// Apply behavior mode
 	switch s.cfg.Behavior.Mode {
